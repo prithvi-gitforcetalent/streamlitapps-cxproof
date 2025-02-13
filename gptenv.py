@@ -2,12 +2,13 @@
 
 import streamlit as st
 from openai import OpenAI
-# Ensure API key is securely stored in Streamlit secrets
-api_key = "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"
 
 
 # Set the title of the app
 st.title("AI 1")
+
+# Get API key from Streamlit secrets
+api_key = st.secrets["openai"]["api_key"] if "openai" in st.secrets else None
 
 
 if not api_key:
