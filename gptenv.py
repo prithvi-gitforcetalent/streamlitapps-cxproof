@@ -3,7 +3,7 @@
 import streamlit as st
 from openai import OpenAI
 # Ensure API key is securely stored in Streamlit secrets
-api_key = "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"
+api_key = "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"
 
 
 # Set the title of the app
