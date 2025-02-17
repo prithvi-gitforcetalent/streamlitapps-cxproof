@@ -1,2 +1,7 @@
 openai
 cloudscraper
+streamlit
+beautifulsoup4
+selenium
+requests
+googlesearch-python
