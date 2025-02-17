@@ -4,6 +4,29 @@ import requests
 import cloudscraper
 from bs4 import BeautifulSoup
 from googlesearch import search
+from urllib.parse import urlparse
+
+from urllib.parse import urlparse
+
+
+def normalize_url(url):
+    """Ensure only the homepage URL is returned, stripping any subpages."""
+
+    # Add https:// if missing
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+        # Parse the URL
+    parsed_url = urlparse(url)
+
+    # If the input was incorrectly formatted, handle it safely
+    if not parsed_url.netloc:
+        return "Invalid URL"
+
+    # Construct base URL (only scheme + domain)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
+
+    return base_url
 
 
 def scrape_meta_content(website_url):
@@ -69,12 +92,14 @@ def find_linkedin_about_section(website_url):
 st.title("Company Data Extractor")
 
 # Input URL
-website_url = st.text_input("Enter a company website URL:")
+user_input = st.text_input("Enter a company website URL:")
 
 if st.button("Extract Data"):
-    if website_url:
+    if user_input:
+        # Normalize the input URL to extract only the homepage
+        website_url = normalize_url(user_input)
         st.write("## Results")
-        st.write(f"**URL:** {website_url}")
+        st.write(f"**Processed URL:** {website_url}")
 
         # Get and display LinkedIn About section
         linkedin_about = find_linkedin_about_section(website_url)
