@@ -29,6 +29,19 @@ def normalize_url(url):
     return base_url
 
 
+def scrape_title(website_url):
+    scraper = cloudscraper.create_scraper()
+    output = []
+    try:
+        response = scraper.get(website_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title_tag = soup.find('title').text if soup.find('title') else 'No title found'
+        output.append(f"Title: {title_tag}")
+    except Exception as e:
+        output.append(f"An error occurred: {e}")
+
+    return "\n".join(output)
+
 def scrape_meta_content(website_url):
     scraper = cloudscraper.create_scraper()  # Create a cloudscraper instance
     output = []
@@ -101,14 +114,22 @@ if st.button("Extract Data"):
         st.write("## Results")
         st.write(f"**Processed URL:** {website_url}")
 
-        # Get and display LinkedIn About section
-        linkedin_about = find_linkedin_about_section(website_url)
-        st.write("### LinkedIn About Section:")
-        st.write(linkedin_about)
+        # Get and display Title content
+        title = scrape_title(website_url)
+        st.write("### Title:")
+        st.write(title)
 
         # Get and display Meta content
         meta_content = scrape_meta_content(website_url)
         st.write("### Meta Tags Content:")
         st.write(meta_content)
+
+
+        # Get and display LinkedIn About section
+        linkedin_about = find_linkedin_about_section(website_url)
+        st.write("### LinkedIn About Section:")
+        st.write(linkedin_about)
+
+
     else:
         st.warning("Please enter a valid URL.")
