@@ -36,7 +36,7 @@ def extract_product_info(html_content):
             extracted_content.append(text)
 
     # Limit extracted content to the first 2000 characters
-    extracted_text = "\n".join(extracted_content)[:10000]
+    extracted_text = "\n".join(extracted_content)[:20000]
 
     return {
         "title": title if title else "N/A",
