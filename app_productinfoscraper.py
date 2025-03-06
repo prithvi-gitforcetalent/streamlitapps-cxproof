@@ -13,156 +13,38 @@ def fetch_html(url):
         return None
 
 
+
 def extract_product_info(html_content):
-    """Extract relevant product information including title, metadata, and cleaned page content."""
-    soup = BeautifulSoup(html_content, 'html.parser')
+    """Extracts title, meta description, and text from <p>, <h1>, <h2>, <h3>, and <div> tags while removing duplicates."""
+    soup = BeautifulSoup(html_content, "html.parser")
 
     # Extract Page Title
-    title = soup.title.string.strip() if soup.title else None
+    title = soup.title.string.strip() if soup.title else "N/A"
 
-    # Extract Meta Description
+    # Extract Meta Description (fixing potential NoneType issue)
     meta_desc_tag = soup.find("meta", attrs={"name": "description"})
-    meta_desc = meta_desc_tag["content"].strip() if meta_desc_tag else None
+    meta_desc = meta_desc_tag.get("content", "N/A").strip() if meta_desc_tag else "N/A"
 
-    # Make a copy of the soup for content extraction
-    content_soup = BeautifulSoup(str(soup), 'html.parser')
+    extracted_content = []
+    seen_texts = set()  # Track unique texts to avoid duplicates
 
-    # Remove unwanted sections - more comprehensive list
-    for tag in ["footer", "nav", "aside", "script", "style", "header", "noscript", "iframe"]:
-        for element in content_soup.find_all(tag):
-            element.decompose()
+    # Extract text from <h1>, <h2>, <h3>, <p>, and <div> tags
+    for tag in soup.find_all(["h1", "h2", "h3", "p", "div"]):
+        text = tag.get_text(" ", strip=True)  # Ensure text within the same tag stays on one line
+        if text and text not in seen_texts:  # Ensure uniqueness
+            seen_texts.add(text)
+            extracted_content.append(text)
 
-    # Remove common UI elements by class/id
-    for selector in [
-        ".footer", "#footer", ".header", "#header", ".navbar", "#navbar",
-        ".menu", "#menu", ".sidebar", "#sidebar", ".ad", ".advertisement",
-        ".cookie", ".banner", ".social", ".share", ".comments", ".related",
-        ".copyright", ".rights", ".legal", ".terms", ".privacy"
-    ]:
-        for element in content_soup.select(selector):
-            element.decompose()
-
-    # Try to extract the main content area
-    main_element = None
-    main_selectors = [
-        "main", "#main", "article", ".content", "#content",
-        ".main-content", ".product-content", ".product-description"
-    ]
-
-    for selector in main_selectors:
-        elements = content_soup.select(selector)
-        if elements:
-            main_element = max(elements, key=lambda x: len(x.get_text()))
-            break
-
-    # If we found a main content element, use that; otherwise use the whole page
-    if main_element:
-        # Extract structured content
-        return extract_structured_content(main_element, title, meta_desc)
-    else:
-        # Extract structured content from the whole page
-        return extract_structured_content(content_soup, title, meta_desc)
-
-
-def extract_structured_content(content_element, title, meta_desc):
-    """Extract structured content with headings and paragraphs."""
-    # Find main heading (typically h1)
-    main_heading = content_element.find('h1')
-    if not main_heading:
-        main_heading = content_element.find('h2')
-
-    main_heading_text = main_heading.get_text().strip() if main_heading else None
-
-    # Find product description (after main heading)
-    description = ""
-    if main_heading:
-        # Look for paragraphs after the main heading
-        element = main_heading.next_sibling
-        while element and (not hasattr(element, 'name') or element.name not in ['h1', 'h2', 'h3']):
-            if hasattr(element, 'name') and element.name == 'p':
-                description += element.get_text().strip() + " "
-            element = element.next_sibling
-
-    # If no description found next to heading, look for a lead paragraph
-    if not description and content_element:
-        lead_para = content_element.find(['p', 'div'], class_=lambda c: c and any(
-            cls in c for cls in ['lead', 'intro', 'description', 'summary']))
-        if lead_para:
-            description = lead_para.get_text().strip()
-
-    # Extract sections (headers and their content)
-    sections = []
-    headings = content_element.find_all(['h1', 'h2', 'h3'])
-
-    for heading in headings:
-        heading_text = heading.get_text().strip()
-
-        # Skip empty headings
-        if not heading_text:
-            continue
-
-        # Extract content until next heading
-        content = ""
-        element = heading.next_sibling
-
-        while element and (not hasattr(element, 'name') or element.name not in ['h1', 'h2', 'h3']):
-            if hasattr(element, 'name') and element.name in ['p', 'ul', 'ol', 'div', 'span']:
-                element_text = element.get_text().strip()
-                if element_text:
-                    content += element_text + " "
-            element = element.next_sibling
-
-        if content:
-            sections.append({
-                "heading": heading_text,
-                "content": content.strip()
-            })
-
-    # Build structured content
-    structured_content = ""
-
-    # Add main heading and description
-    if main_heading_text:
-        structured_content += f"{main_heading_text}\n\n"
-    if description:
-        structured_content += f"{description}\n\n"
-
-    # Add all sections
-    for section in sections:
-        structured_content += f"{section['heading']}\n{section['content']}\n\n"
-
-    # Clean up the content
-    structured_content = clean_content(structured_content)
+    # Limit extracted content to the first 2000 characters
+    extracted_text = "\n".join(extracted_content)[:10000]
 
     return {
-        "Page Title": title if title else "No Title Found",
-        "Page Meta Data": meta_desc if meta_desc else "No Meta Description Found",
-        "Page Content": structured_content[:5000]  # Limit to 5000 chars to avoid excessive text
+        "title": title if title else "N/A",
+        "meta_desc": meta_desc if meta_desc else "N/A",
+        "extracted_content": extracted_text if extracted_text else "No content extracted"
     }
 
 
-def clean_content(text):
-    """Clean the extracted content."""
-    # Fix spacing issues
-    text = re.sub(r'\s+', ' ', text)
-
-    # Fix special characters like "Â"
-    text = text.replace('Â', '')
-
-    # Remove duplicate spaces
-    text = re.sub(r' +', ' ', text)
-
-    # Remove excessive newlines but preserve paragraph structure
-    text = re.sub(r'\n{3,}', '\n\n', text)
-
-    # Remove button text
-    text = re.sub(r'(?:Get Access|Sign In|Log In|Sign Up|Learn More|See the Demo|Buy Now)\b', '', text)
-
-    # Remove copyright and legal statements
-    text = re.sub(r'Copyright ©.*', '', text)
-    text = re.sub(r'All rights reserved\..*', '', text)
-
-    return text.strip()
 
 st.set_page_config(page_title="Product Page Scraper", layout="wide")
 
@@ -184,13 +66,17 @@ if st.button("Scrape Product Info"):
 
             # Display results
             st.subheader("📖 Page Title")
-            st.write(product_info["Page Title"])
+            st.write(product_info["title"])  # Use correct key
 
             st.subheader("📝 Page Meta Data")
-            st.write(product_info["Page Meta Data"])
+            st.write(product_info["meta_desc"])  # Use correct key
 
             st.subheader("📜 Page Content")
-            st.text_area("Extracted Content", product_info["Page Content"], height=300)
+            st.text_area("Extracted Content", product_info["extracted_content"], height=300)  # Use correct key
+
+
+
+
         else:
             st.error("Failed to fetch the page. Please check the URL and try again.")
     else:
