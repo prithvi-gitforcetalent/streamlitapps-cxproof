@@ -5,3 +5,8 @@ beautifulsoup4
 selenium
 requests
 googlesearch-python
+streamlit
+pillow
+boto3
+screenshotone
+openai
