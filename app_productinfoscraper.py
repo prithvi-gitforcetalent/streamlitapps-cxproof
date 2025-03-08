@@ -116,27 +116,33 @@ def upload_to_s3(file_name):
         print(f"❌ S3 upload failed: {e}")
         return None
 
-
 # Function to process multiple images with AI
 def process_multiple_images_with_ai(image_urls, prompt, model="gpt-4o"):
-    client = OpenAI(api_key=OPENAI_API_KEY)  # Initialize the client
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])  # Initialize the client
 
     all_results = []
     combined_text = ""
 
-    # Calculate the midpoint - only process first half of images
-    midpoint = len(image_urls) // 2
-    # Ensure at least one image is processed
-    if midpoint == 0 and len(image_urls) > 0:
-        midpoint = 1
+    total_images = len(image_urls)
 
-    # Use only the first half of images for processing
-    images_to_process = image_urls[:midpoint]
+    # Determine how many images to process based on the new logic
+    if total_images >= 9:
+        # If 9+ images, process half
+        images_to_process = total_images // 2
+    elif total_images >= 6:
+        # If 6-8 images, process exactly 6
+        images_to_process = 6
+    else:
+        # If 5 or fewer, process all of them
+        images_to_process = total_images
 
-    for i, img_url in enumerate(images_to_process):
+    # Use only the determined number of images for processing
+    images_to_process_list = image_urls[:images_to_process]
+
+    for i, img_url in enumerate(images_to_process_list):
         try:
             # Create a modified prompt to indicate which section it is
-            section_prompt = f"{prompt}\n\n(This is section {i + 1} of {midpoint} from the first half of the webpage screenshot.)"
+            section_prompt = f"{prompt}\n\n(This is section {i + 1} of {images_to_process} from the webpage screenshot.)"
 
             # Make API call for this image
             response = client.chat.completions.create(
@@ -239,21 +245,30 @@ Return Format:
   "product_raw_text": "<filtered sentences goes here in the original order>"
 }""", height=200)
 
-    st.info("Note: For efficiency, only the first half of the page sections will be processed with the AI.")
+    st.info(
+        "Note: For efficiency, pages with 9+ sections will only process the first half. Pages with 6-8 sections will process up to 6 sections. Pages with 5 or fewer sections will process all sections.")
 
     if st.button("Process with AI"):
         if "image_urls" in st.session_state and st.session_state["image_urls"]:
-            # Calculate how many images we'll process
+            # Get the total number of images
             total_images = len(st.session_state["image_urls"])
-            images_to_process = total_images // 2
-            if images_to_process == 0 and total_images > 0:
-                images_to_process = 1
 
-            with st.spinner(f"Processing the first {images_to_process} of {total_images} images with AI..."):
+            # Determine how many images to process based on the same logic
+            if total_images >= 9:
+                # If 9+ images, process half
+                images_to_process = total_images // 2
+            elif total_images >= 6:
+                # If 6-8 images, process exactly 6
+                images_to_process = 6
+            else:
+                # If 5 or fewer, process all of them
+                images_to_process = total_images
+
+            with st.spinner(f"Processing {images_to_process} of {total_images} images with AI..."):
                 results = process_multiple_images_with_ai(st.session_state["image_urls"], prompt, "gpt-4o")
                 st.session_state["ai_results"] = results
 
-                st.success(f"✅ AI Processing Complete! (Analyzed first {images_to_process} sections)")
+                st.success(f"✅ AI Processing Complete! (Analyzed {images_to_process} sections)")
 
 
 
