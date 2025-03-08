@@ -10,3 +10,4 @@ pillow
 boto3
 screenshotone
 openai
+langdetect
