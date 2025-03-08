@@ -11,3 +11,11 @@ boto3
 screenshotone
 openai
 langdetect
+streamlit
+pillow
+boto3
+cloudscraper
+beautifulsoup4
+lxml
+langdetect
+openai
