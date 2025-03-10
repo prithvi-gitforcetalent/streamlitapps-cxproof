@@ -11,9 +11,12 @@ import os
 import json
 import cloudscraper
 from bs4 import BeautifulSoup
+import logging
 
 
 
+#
+#
 SCREENSHOTONE_ACCESS_KEY = st.secrets["SCREENSHOTONE_ACCESS_KEY"]
 SCREENSHOTONE_SECRET_KEY = st.secrets["SCREENSHOTONE_SECRET_KEY"]
 AWS_ACCESS_KEY = st.secrets["AWS_ACCESS_KEY"]
@@ -22,7 +25,6 @@ AWS_BUCKET_NAME = st.secrets["AWS_BUCKET_NAME"]
 AWS_REGION = st.secrets["AWS_REGION"]
 S3_BASE_URL = f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
 
 
 def get_page_metadata(url):
@@ -74,6 +76,8 @@ def get_page_metadata(url):
             og_desc = soup.find("meta", attrs={"property": "og:description"})
             if og_desc and og_desc.get("content"):
                 description = og_desc.get("content").strip()
+
+        logging.info(f"description from function is: {description}")
 
         return {
             "title": title,
@@ -283,6 +287,9 @@ def process_multiple_images_with_ai(image_urls, page_metadata, prompt, model="gp
 
 # Streamlit App UI
 st.title("Website Screenshot + AI Analysis 🚀")
+logging.basicConfig(level=logging.INFO)
+logging.info("App loading...")
+
 
 # Layout: Screenshot on Left | AI Output on Right
 col1, col2 = st.columns([1, 1])
@@ -301,8 +308,8 @@ with col1:
                 if result and result["image_urls"]:
                     image_urls = result["image_urls"]
                     metadata = result["metadata"]
-                    print("meta data is ")
-                    print(metadata)
+
+                    logging.info(f"Metadata returned is: {metadata}")
                     st.success(f"Screenshot captured and split into {len(image_urls)} images!")
                     # Display page metadata
                     st.subheader("Page Information")
