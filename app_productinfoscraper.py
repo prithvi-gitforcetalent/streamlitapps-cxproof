@@ -25,11 +25,16 @@ AWS_BUCKET_NAME = st.secrets["AWS_BUCKET_NAME"]
 AWS_REGION = st.secrets["AWS_REGION"]
 S3_BASE_URL = f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+#
+
+
 
 
 def get_page_metadata(url):
-    """Extract title and metadata from a webpage"""
+    """Extract title and metadata from a webpage with fallback for 403 errors"""
+    logging.info(f"Starting metadata extraction for: {url}")
     try:
+        # Try cloudscraper first
         scraper = cloudscraper.create_scraper(
             browser={
                 'browser': 'chrome',
@@ -37,55 +42,108 @@ def get_page_metadata(url):
                 'desktop': True
             }
         )
-        #response = scraper.get(url, timeout=15)
+
         response = scraper.get(url, timeout=15, allow_redirects=True)
 
         # Log the final URL after potential redirects
         final_url = response.url
-        print(f"Initial URL: {url}")
-        print(f"Final URL after redirects: {final_url}")
+        logging.info(f"Initial URL: {url}")
+        logging.info(f"Final URL after redirects: {final_url}")
+        logging.info(f"Response status code: {response.status_code}")
 
-        if response.status_code != 200:
+        # If we got a 403, try a different approach
+        if response.status_code == 403:
+            logging.info(f"Got 403 from {url}, trying fallback approach")
+            # For certain domains, try accessing the root domain first
+            try:
+                # Get root domain
+                from urllib.parse import urlparse
+                parsed_url = urlparse(url)
+                root_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+                # Try the root domain
+                logging.info(f"Trying root domain: {root_url}")
+                root_response = scraper.get(root_url, timeout=15)
+
+                if root_response.status_code == 200:
+                    logging.info("Root domain access successful, extracting metadata from root")
+                    soup = BeautifulSoup(root_response.content, 'html.parser')
+
+                    # Extract title from root page
+                    title = ""
+                    if soup.title:
+                        title = soup.title.string.strip()
+
+                    # Extract description from root page
+                    description = ""
+                    meta_desc = soup.find("meta", attrs={"name": "description"})
+                    if meta_desc and meta_desc.get("content"):
+                        description = meta_desc.get("content").strip()
+
+                    # Fallback to Open Graph description
+                    if not description:
+                        og_desc = soup.find("meta", attrs={"property": "og:description"})
+                        if og_desc and og_desc.get("content"):
+                            description = og_desc.get("content").strip()
+
+                    logging.info(f"Root domain metadata - Title: '{title}', Description: '{description}'")
+
+                    return {
+                        "title": title,
+                        "description": description,
+                        "note": "Metadata extracted from root domain due to access restrictions"
+                    }
+                else:
+                    logging.info(f"Root domain also returned error: {root_response.status_code}")
+            except Exception as e:
+                logging.error(f"Root domain fallback failed: {str(e)}")
+
+            # If root domain approach failed, return a generic message
+            return {
+                "title": "Title not available (website restricted access)",
+                "description": "Description not available (website restricted access)",
+                "error": "HTTP error 403 (Forbidden)"
+            }
+
+        # Continue with normal processing if status code is 200
+        if response.status_code == 200:
+            # Parse HTML
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # Get title
+            title = ""
+            if soup.title:
+                title = soup.title.string
+                if title:
+                    title = title.strip()
+                    logging.info(f"Found title: '{title}'")
+
+            # Get meta description
+            description = ""
+            meta_desc = soup.find("meta", attrs={"name": "description"})
+            if meta_desc and meta_desc.get("content"):
+                description = meta_desc.get("content").strip()
+                logging.info(f"Found description: '{description}'")
+
+            # Get Open Graph description as fallback
+            if not description:
+                og_desc = soup.find("meta", attrs={"property": "og:description"})
+                if og_desc and og_desc.get("content"):
+                    description = og_desc.get("content").strip()
+                    logging.info(f"Found OG description: '{description}'")
+
+            return {
+                "title": title,
+                "description": description
+            }
+        else:
+            # Handle other status codes
             return {"title": "", "description": "", "error": f"HTTP error {response.status_code}"}
 
-        # Continue with your existing parsing logic
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-
-        # if response.status_code != 200:
-        #     return {"title": "", "description": "", "error": f"HTTP error {response.status_code}"}
-        #
-        # # Parse HTML
-        # soup = BeautifulSoup(response.content, 'html.parser')
-
-
-
-        # Get title
-        title = ""
-        if soup.title:
-            title = soup.title.string.strip()
-
-        # Get meta description
-        description = ""
-        meta_desc = soup.find("meta", attrs={"name": "description"})
-        if meta_desc and meta_desc.get("content"):
-            description = meta_desc.get("content").strip()
-
-        # Get Open Graph description as fallback
-        if not description:
-            og_desc = soup.find("meta", attrs={"property": "og:description"})
-            if og_desc and og_desc.get("content"):
-                description = og_desc.get("content").strip()
-
-        logging.info(f"description from function is: {description}")
-
-        return {
-            "title": title,
-            "description": description
-        }
-
     except Exception as e:
+        logging.error(f"Exception in metadata extraction: {str(e)}")
         return {"title": "", "description": "", "error": str(e)}
+
 
 # Function to split long screenshot into multiple images
 def split_long_screenshot(input_image):
