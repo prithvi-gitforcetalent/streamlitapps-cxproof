@@ -279,33 +279,33 @@ with col1:
     # User Input for URL
     url = st.text_input("Enter website URL:", "https://getbild.com/")
 
-
     # Capture Screenshot Button
     if st.button("Capture Screenshot"):
         with st.spinner("Taking screenshot and splitting into multiple images..."):
-            result = take_screenshot(url)
-            if result and result["image_urls"]:
-                image_urls = result["image_urls"]
-                metadata = result["metadata"]
-
-                st.success(f"Screenshot captured and split into {len(image_urls)} images!")
-
-                # Display page metadata
-                st.subheader("Page Information")
-                st.write(f"**Title:** {metadata['title']}")
-                st.write(f"**Description:** {metadata['description']}")
-
-                # Display all images in a scrollable container
-                with st.container():
-                    for i, img_url in enumerate(image_urls):
-                        st.image(img_url, caption=f"Section {i + 1}", use_container_width=True)
-                        st.markdown("---")  # Add a separator between images
-
-                # Store in session state
-                st.session_state["image_urls"] = image_urls
-                st.session_state["page_metadata"] = metadata
-            else:
-                st.error("Failed to capture screenshot")
+            try:
+                result = take_screenshot(url)
+                if result and result["image_urls"]:
+                    image_urls = result["image_urls"]
+                    metadata = result["metadata"]
+                    st.success(f"Screenshot captured and split into {len(image_urls)} images!")
+                    # Display page metadata
+                    st.subheader("Page Information")
+                    st.write(f"**Title:** {metadata['title']}")
+                    st.write(f"**Description:** {metadata['description']}")
+                    # Display all images in a scrollable container
+                    with st.container():
+                        for i, img_url in enumerate(image_urls):
+                            st.image(img_url, caption=f"Section {i + 1}", use_container_width=True)
+                            st.markdown("---")  # Add a separator between images
+                    # Store in session state
+                    st.session_state["image_urls"] = image_urls
+                    st.session_state["page_metadata"] = metadata
+                else:
+                    # Check if there's an error message in the result
+                    error_msg = result.get("error", "Unknown error") if result else "Unknown error"
+                    st.error(f"Failed to capture screenshot: {error_msg}")
+            except Exception as e:
+                st.error(f"Failed to capture screenshot: {str(e)}")
 
 with col2:
     st.subheader("AI Analysis 🧠")
