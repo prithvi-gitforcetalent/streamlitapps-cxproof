@@ -290,8 +290,13 @@ with col1:
                     st.success(f"Screenshot captured and split into {len(image_urls)} images!")
                     # Display page metadata
                     st.subheader("Page Information")
-                    st.write(f"**Title:** {metadata['title']}")
-                    st.write(f"**Description:** {metadata['description']}")
+                    # st.write(f"**Title:** {metadata['title']}")
+                    # st.write(f"**Description:** {metadata['description']}")
+
+                    st.write(f"**Title:** {metadata.get('title', 'Not available')}")
+                    st.write(f"**Description:** {metadata.get('description', 'Not available')}")
+                    
+                    
                     # Display all images in a scrollable container
                     with st.container():
                         for i, img_url in enumerate(image_urls):
