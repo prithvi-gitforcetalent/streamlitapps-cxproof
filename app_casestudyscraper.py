@@ -615,19 +615,10 @@ def process_sitemap_and_yield_urls(scraper, sitemap_url, keywords, processed_sit
 
 def is_matching_url(url, keywords):
     """
-    Check if a URL strictly matches the pattern: companyurl.com/keyword/something
-    where 'something':
-    - is at least 5 characters
-    - doesn't contain any keywords
-    - doesn't contain the word "customer"
-    - isn't another keyword
-
-    Args:
-        url: The URL to check
-        keywords: List of keywords to match
-
-    Returns:
-        True if the URL matches the required pattern, False otherwise
+    Check if a URL matches case study patterns.
+    Now checks for both:
+    1. companyurl.com/keyword/something
+    2. companyurl.com/something/keyword-details or companyurl.com/something/details-keyword-more
     """
     url_lower = url.lower()
     min_segment_length = 5  # Minimum length requirement for the segment after keyword
@@ -635,7 +626,7 @@ def is_matching_url(url, keywords):
     for keyword in keywords:
         keyword_lower = keyword.lower()
 
-        # Check for pattern: /keyword/something
+        # UNCHANGED ORIGINAL CODE - Check for pattern: /keyword/something
         pattern = f"/{keyword_lower}/"
         if pattern in url_lower:
             # Get the part after the keyword
@@ -672,9 +663,18 @@ def is_matching_url(url, keywords):
                     # All checks passed - this is a valid match
                     return True
 
+        # NEW CODE TO ADD - Check for hyphenated patterns
+        hyphen_pattern1 = f"/{keyword_lower}-"  # keyword at start of segment
+        hyphen_pattern2 = f"-{keyword_lower}-"  # keyword in middle of segment
+        hyphen_pattern3 = f"-{keyword_lower}"  # keyword at end of segment
+
+        if hyphen_pattern1 in url_lower or hyphen_pattern2 in url_lower or hyphen_pattern3 in url_lower:
+            # For simplicity, we'll just check if the URL contains a hyphenated version of the keyword
+            # You can add additional validation similar to the first pattern if needed
+            return True
+
     # No valid match found
     return False
-
 
 def check_url_is_english(url):
     result = detect_website_language(url)
