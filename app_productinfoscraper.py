@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup
 
 
 
-
 SCREENSHOTONE_ACCESS_KEY = st.secrets["SCREENSHOTONE_ACCESS_KEY"]
 SCREENSHOTONE_SECRET_KEY = st.secrets["SCREENSHOTONE_SECRET_KEY"]
 AWS_ACCESS_KEY = st.secrets["AWS_ACCESS_KEY"]
@@ -36,13 +35,28 @@ def get_page_metadata(url):
                 'desktop': True
             }
         )
-        response = scraper.get(url, timeout=15)
+        #response = scraper.get(url, timeout=15)
+        response = scraper.get(url, timeout=15, allow_redirects=True)
+
+        # Log the final URL after potential redirects
+        final_url = response.url
+        print(f"Initial URL: {url}")
+        print(f"Final URL after redirects: {final_url}")
 
         if response.status_code != 200:
             return {"title": "", "description": "", "error": f"HTTP error {response.status_code}"}
 
-        # Parse HTML
+        # Continue with your existing parsing logic
         soup = BeautifulSoup(response.content, 'html.parser')
+
+
+        # if response.status_code != 200:
+        #     return {"title": "", "description": "", "error": f"HTTP error {response.status_code}"}
+        #
+        # # Parse HTML
+        # soup = BeautifulSoup(response.content, 'html.parser')
+
+
 
         # Get title
         title = ""
@@ -287,6 +301,8 @@ with col1:
                 if result and result["image_urls"]:
                     image_urls = result["image_urls"]
                     metadata = result["metadata"]
+                    print("meta data is ")
+                    print(metadata)
                     st.success(f"Screenshot captured and split into {len(image_urls)} images!")
                     # Display page metadata
                     st.subheader("Page Information")
@@ -295,8 +311,8 @@ with col1:
 
                     st.write(f"**Title:** {metadata.get('title', 'Not available')}")
                     st.write(f"**Description:** {metadata.get('description', 'Not available')}")
-                    
-                    
+
+
                     # Display all images in a scrollable container
                     with st.container():
                         for i, img_url in enumerate(image_urls):
