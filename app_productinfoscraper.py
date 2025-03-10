@@ -15,8 +15,7 @@ import logging
 
 
 
-#
-#
+
 SCREENSHOTONE_ACCESS_KEY = st.secrets["SCREENSHOTONE_ACCESS_KEY"]
 SCREENSHOTONE_SECRET_KEY = st.secrets["SCREENSHOTONE_SECRET_KEY"]
 AWS_ACCESS_KEY = st.secrets["AWS_ACCESS_KEY"]
@@ -25,16 +24,15 @@ AWS_BUCKET_NAME = st.secrets["AWS_BUCKET_NAME"]
 AWS_REGION = st.secrets["AWS_REGION"]
 S3_BASE_URL = f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-#
-
 
 
 
 def get_page_metadata(url):
-    """Extract title and metadata from a webpage with fallback for 403 errors"""
+    """Extract title and metadata from a webpage with multiple request strategies"""
     logging.info(f"Starting metadata extraction for: {url}")
+
+    # Strategy 1: Standard cloudscraper approach
     try:
-        # Try cloudscraper first
         scraper = cloudscraper.create_scraper(
             browser={
                 'browser': 'chrome',
@@ -44,105 +42,97 @@ def get_page_metadata(url):
         )
 
         response = scraper.get(url, timeout=15, allow_redirects=True)
+        logging.info(f"Strategy 1 status code: {response.status_code}")
 
-        # Log the final URL after potential redirects
-        final_url = response.url
-        logging.info(f"Initial URL: {url}")
-        logging.info(f"Final URL after redirects: {final_url}")
-        logging.info(f"Response status code: {response.status_code}")
-
-        # If we got a 403, try a different approach
-        if response.status_code == 403:
-            logging.info(f"Got 403 from {url}, trying fallback approach")
-            # For certain domains, try accessing the root domain first
-            try:
-                # Get root domain
-                from urllib.parse import urlparse
-                parsed_url = urlparse(url)
-                root_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-
-                # Try the root domain
-                logging.info(f"Trying root domain: {root_url}")
-                root_response = scraper.get(root_url, timeout=15)
-
-                if root_response.status_code == 200:
-                    logging.info("Root domain access successful, extracting metadata from root")
-                    soup = BeautifulSoup(root_response.content, 'html.parser')
-
-                    # Extract title from root page
-                    title = ""
-                    if soup.title:
-                        title = soup.title.string.strip()
-
-                    # Extract description from root page
-                    description = ""
-                    meta_desc = soup.find("meta", attrs={"name": "description"})
-                    if meta_desc and meta_desc.get("content"):
-                        description = meta_desc.get("content").strip()
-
-                    # Fallback to Open Graph description
-                    if not description:
-                        og_desc = soup.find("meta", attrs={"property": "og:description"})
-                        if og_desc and og_desc.get("content"):
-                            description = og_desc.get("content").strip()
-
-                    logging.info(f"Root domain metadata - Title: '{title}', Description: '{description}'")
-
-                    return {
-                        "title": title,
-                        "description": description,
-                        "note": "Metadata extracted from root domain due to access restrictions"
-                    }
-                else:
-                    logging.info(f"Root domain also returned error: {root_response.status_code}")
-            except Exception as e:
-                logging.error(f"Root domain fallback failed: {str(e)}")
-
-            # If root domain approach failed, return a generic message
-            return {
-                "title": "Title not available (website restricted access)",
-                "description": "Description not available (website restricted access)",
-                "error": "HTTP error 403 (Forbidden)"
-            }
-
-        # Continue with normal processing if status code is 200
         if response.status_code == 200:
-            # Parse HTML
             soup = BeautifulSoup(response.content, 'html.parser')
+            title = soup.title.string.strip() if soup.title else ""
 
-            # Get title
-            title = ""
-            if soup.title:
-                title = soup.title.string
-                if title:
-                    title = title.strip()
-                    logging.info(f"Found title: '{title}'")
-
-            # Get meta description
             description = ""
             meta_desc = soup.find("meta", attrs={"name": "description"})
             if meta_desc and meta_desc.get("content"):
                 description = meta_desc.get("content").strip()
-                logging.info(f"Found description: '{description}'")
 
-            # Get Open Graph description as fallback
             if not description:
                 og_desc = soup.find("meta", attrs={"property": "og:description"})
                 if og_desc and og_desc.get("content"):
                     description = og_desc.get("content").strip()
-                    logging.info(f"Found OG description: '{description}'")
 
-            return {
-                "title": title,
-                "description": description
-            }
-        else:
-            # Handle other status codes
-            return {"title": "", "description": "", "error": f"HTTP error {response.status_code}"}
-
+            if title or description:
+                return {"title": title, "description": description}
     except Exception as e:
-        logging.error(f"Exception in metadata extraction: {str(e)}")
-        return {"title": "", "description": "", "error": str(e)}
+        logging.error(f"Strategy 1 failed: {str(e)}")
+
+    # Strategy 2: Try with standard requests library and different user agent
+    if "strategy_1_failed" or response.status_code != 200:
+        try:
+            import requests
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.google.com/'  # Sometimes helps bypass restrictions
+            }
+
+            response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+            logging.info(f"Strategy 2 status code: {response.status_code}")
+
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                title = soup.title.string.strip() if soup.title else ""
+
+                description = ""
+                meta_desc = soup.find("meta", attrs={"name": "description"})
+                if meta_desc and meta_desc.get("content"):
+                    description = meta_desc.get("content").strip()
+
+                if not description:
+                    og_desc = soup.find("meta", attrs={"property": "og:description"})
+                    if og_desc and og_desc.get("content"):
+                        description = og_desc.get("content").strip()
+
+                if title or description:
+                    return {"title": title, "description": description}
+        except Exception as e:
+            logging.error(f"Strategy 2 failed: {str(e)}")
+
+    # Strategy 3: Try mobile user agent
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9'
+        }
+
+        import requests
+        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        logging.info(f"Strategy 3 status code: {response.status_code}")
+
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            title = soup.title.string.strip() if soup.title else ""
+
+            description = ""
+            meta_desc = soup.find("meta", attrs={"name": "description"})
+            if meta_desc and meta_desc.get("content"):
+                description = meta_desc.get("content").strip()
+
+            if not description:
+                og_desc = soup.find("meta", attrs={"property": "og:description"})
+                if og_desc and og_desc.get("content"):
+                    description = og_desc.get("content").strip()
+
+            if title or description:
+                return {"title": title, "description": description}
+    except Exception as e:
+        logging.error(f"Strategy 3 failed: {str(e)}")
+
+    # If all strategies fail, return error
+    return {
+        "title": "Unable to access page content",
+        "description": "This page appears to be blocking automated access",
+        "error": "All access strategies failed"
+    }
 
 
 # Function to split long screenshot into multiple images
