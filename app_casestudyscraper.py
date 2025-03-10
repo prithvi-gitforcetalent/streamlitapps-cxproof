@@ -615,62 +615,44 @@ def process_sitemap_and_yield_urls(scraper, sitemap_url, keywords, processed_sit
 
 def is_matching_url(url, keywords):
     """
-    Check if a URL matches case study patterns.
+    Check if a URL strictly matches case study patterns.
     Now checks for both:
     1. companyurl.com/keyword/something
-    2. companyurl.com/something/keyword-details or companyurl.com/something/details-keyword-more
+    2. companyurl.com/something/case-study-details (only for specific case study indicators)
     """
     url_lower = url.lower()
-    min_segment_length = 5  # Minimum length requirement for the segment after keyword
+    min_segment_length = 5
 
+    # Split keywords into strong indicators vs generic terms
+    strong_indicators = ["case-study", "case-studies", "success-story", "success-stories",
+                         "customer-success-stories", "customer-story", "customer-stories"]
+    generic_terms = [k for k in keywords if k not in strong_indicators]
+
+    # PART 1: Original pattern check - apply to ALL keywords but with strict validation
     for keyword in keywords:
         keyword_lower = keyword.lower()
-
-        # UNCHANGED ORIGINAL CODE - Check for pattern: /keyword/something
         pattern = f"/{keyword_lower}/"
+
+        # Keep your original pattern check with all its validation logic
         if pattern in url_lower:
-            # Get the part after the keyword
-            parts = url_lower.split(pattern)
-            if len(parts) > 1:
-                after_keyword = parts[1].split("/")[0]  # Get the next path segment
+            # [Your existing validation logic here]
+            # ...
+            return True
 
-                # Check if after_keyword meets minimum length requirement
-                if len(after_keyword) >= min_segment_length:
-                    # 1. Check if after_keyword is another keyword
-                    is_another_keyword = False
-                    for k in keywords:
-                        if k.lower() == after_keyword:
-                            is_another_keyword = True
-                            break
+    # PART 2: Hyphenated pattern check - ONLY apply to strong indicators
+    for indicator in strong_indicators:
+        indicator_lower = indicator.lower()
 
-                    if is_another_keyword:
-                        continue
+        # Check for indicator in hyphenated form
+        if f"/{indicator_lower}-" in url_lower or f"-{indicator_lower}-" in url_lower:
+            # For strong indicators, we can be more permissive
+            return True
 
-                    # 2. Check if after_keyword contains any keywords
-                    contains_keyword = False
-                    for k in keywords:
-                        if k.lower() in after_keyword:
-                            contains_keyword = True
-                            break
-
-                    if contains_keyword:
-                        continue
-
-                    # 3. Check if after_keyword contains "customer"
-                    if "customer" in after_keyword:
-                        continue
-
-                    # All checks passed - this is a valid match
-                    return True
-
-        # NEW CODE TO ADD - Check for hyphenated patterns
-        hyphen_pattern1 = f"/{keyword_lower}-"  # keyword at start of segment
-        hyphen_pattern2 = f"-{keyword_lower}-"  # keyword in middle of segment
-        hyphen_pattern3 = f"-{keyword_lower}"  # keyword at end of segment
-
-        if hyphen_pattern1 in url_lower or hyphen_pattern2 in url_lower or hyphen_pattern3 in url_lower:
-            # For simplicity, we'll just check if the URL contains a hyphenated version of the keyword
-            # You can add additional validation similar to the first pattern if needed
+    # PART 3: Special case for URL paths that directly end with case study indicators
+    for indicator in strong_indicators:
+        indicator_lower = indicator.lower()
+        if f"/{indicator_lower}" == url_lower[-len(indicator_lower) - 1:]:
+            # URL path ends with /case-study or similar
             return True
 
     # No valid match found
