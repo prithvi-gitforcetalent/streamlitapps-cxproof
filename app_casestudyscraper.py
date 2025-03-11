@@ -11,9 +11,6 @@ import time
 import random
 from urllib.parse import urlparse
 
-# Set page title and layout
-st.set_page_config(page_title="Case Study Scraper", layout="wide")
-
 
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
