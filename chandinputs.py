@@ -106,10 +106,7 @@ st.title("Company Data Extractor")
 
 
 st.set_page_config(
-    page_title="Company Data Extractor",
-    page_icon="🔍", # Optional: you can add an icon
-    layout="wide", # Optional: you can set the layout
-    initial_sidebar_state="expanded" # Optional: configure sidebar
+    page_title="Company Data Extractor"
 )
 
 
