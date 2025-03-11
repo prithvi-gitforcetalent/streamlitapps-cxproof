@@ -1,6 +1,12 @@
 import streamlit as st
 from openai import OpenAI
 
+
+st.set_page_config(
+    page_title="GPT 1"
+)
+
+
 # Set the title of the app
 st.title("AI 1")
 
