@@ -722,6 +722,12 @@ def display_case_studies(case_studies):
             if 'error' in case_study and case_study['error']:
                 st.error(f"Error: {case_study['error']}")
 
+
+st.set_page_config(
+    page_title="Case Study Scraper"
+)
+
+
 # Main Streamlit app
 st.title("Company Case Study Scraper 📊")
 
