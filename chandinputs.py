@@ -100,14 +100,15 @@ def find_linkedin_about_section(website_url):
     except Exception as e:
         return f"An error occurred: {e}"
 
+st.set_page_config(
+    page_title="Company Data Extractor"
+)
+
 
 # Streamlit UI
 st.title("Company Data Extractor")
 
 
-st.set_page_config(
-    page_title="Company Data Extractor"
-)
 
 
 # Input URL
