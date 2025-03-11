@@ -334,6 +334,13 @@ def process_multiple_images_with_ai(image_urls, page_metadata, prompt, model="gp
 
 
 # Streamlit App UI
+
+
+st.set_page_config(
+    page_title="Product Info Scraper"
+)
+
+
 st.title("Website Screenshot + AI Analysis 🚀")
 logging.basicConfig(level=logging.INFO)
 logging.info("App loading...")
