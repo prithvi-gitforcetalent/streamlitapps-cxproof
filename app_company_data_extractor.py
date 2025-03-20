@@ -6,8 +6,6 @@ from bs4 import BeautifulSoup
 from googlesearch import search
 from urllib.parse import urlparse
 
-from urllib.parse import urlparse
-
 
 def normalize_url(url):
     """Ensure only the homepage URL is returned, stripping any subpages."""
@@ -64,42 +62,65 @@ def scrape_meta_content(website_url):
 def find_linkedin_about_section(website_url):
     try:
         # Step 1: Perform a Google search for "WEBSITE URL + LinkedIn"
-        query = f"{website_url} LinkedIn"
-        search_results = search(query, num_results=1)  # Get the first result
+        query = f"{website_url} LinkedIn company page"
+        search_results = search(query, num=1)  # Using the corrected parameter
         linkedin_url = next(search_results, None)
 
         if not linkedin_url:
             return "No LinkedIn page found in the search results."
 
-        # Step 2: Fetch the LinkedIn page
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-        response = requests.get(linkedin_url, headers=headers)
+        st.write(f"Found LinkedIn URL: {linkedin_url}")  # Debug output
+
+        # Step 2: Use cloudscraper instead of regular requests
+        scraper = cloudscraper.create_scraper()
+        response = scraper.get(linkedin_url)
+
         if response.status_code != 200:
             return f"Failed to fetch LinkedIn page. Status code: {response.status_code}"
 
-        # Step 3: Parse the LinkedIn page and find the "About" section
+        # Step 3: Parse the LinkedIn page and try multiple methods to find the About section
         soup = BeautifulSoup(response.text, 'html.parser')
-        script = soup.find('script', type='application/ld+json')
 
-        if script:
+        # Method 1: Try JSON-LD
+        script = soup.find('script', type='application/ld+json')
+        if script and script.string:
             try:
                 data = json.loads(script.string)
-                organization_data = data.get("@graph", [])[0]  # Get first element of @graph
-                about_text = organization_data.get("description", "No about section found.")
-                return about_text
+                # Try different JSON paths that might contain the about info
+                if "@graph" in data:
+                    organization_data = data.get("@graph", [])[0]
+                    about_text = organization_data.get("description")
+                    if about_text:
+                        return about_text
 
-            except json.JSONDecodeError:
-                return "Error decoding JSON."
-            except (IndexError, KeyError):
-                return "Key not found in JSON."
+                # Direct access attempt
+                about_text = data.get("description")
+                if about_text:
+                    return about_text
+            except (json.JSONDecodeError, IndexError, KeyError):
+                pass  # Continue to other methods if this fails
 
-        return "No JSON-LD script found."
+        # Method 2: Try common HTML elements that might contain about info
+        about_section = soup.find('section', {'class': 'about-us'}) or \
+                        soup.find('section', {'id': 'about-us'}) or \
+                        soup.find('div', {'class': 'org-about-us-organization-description'}) or \
+                        soup.find('p', {'class': 'break-words'})
+
+        if about_section:
+            return about_section.text.strip()
+
+        # Method 3: Look for "About" section using text cues
+        about_headers = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5'], string=lambda s: s and 'About' in s)
+        for header in about_headers:
+            next_sibling = header.find_next('p')
+            if next_sibling:
+                return next_sibling.text.strip()
+
+        # If all methods fail
+        return "About section found but could not extract content. LinkedIn may require authentication."
 
     except Exception as e:
-        return f"An error occurred: {e}"
-
+        return f"An error occurred: {str(e)}"
 st.set_page_config(
     page_title="Company Data Extractor"
 )
@@ -113,7 +134,6 @@ st.title("Company Data Extractor")
 
 # Input URL
 user_input = st.text_input("Enter a company website URL:")
-
 
 
 
