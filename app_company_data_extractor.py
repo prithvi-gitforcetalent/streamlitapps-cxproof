@@ -67,8 +67,11 @@ def find_linkedin_about_section(website_url):
         # Your Google API key and Custom Search Engine ID
 
         api_key = st.secrets["googlecloudconsole"]["api_key"] if "googlecloudconsole" in st.secrets else None
+        st.write(api_key)
 
         cse_id = st.secrets["googlecloudconsole"]["cse_id"] if "googlecloudconsole" in st.secrets else None
+
+        st.write(cse_id)
 
         # Create the search query
         query = f"{website_url} LinkedIn company page"
