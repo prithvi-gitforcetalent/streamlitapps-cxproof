@@ -11,3 +11,5 @@ openai
 langdetect
 lxml
 logging
+google-auth
+google-api-python-client
