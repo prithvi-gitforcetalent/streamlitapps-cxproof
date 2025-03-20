@@ -60,16 +60,35 @@ def scrape_meta_content(website_url):
 
 
 def find_linkedin_about_section(website_url):
+
     try:
         # Step 1: Perform a Google search for "WEBSITE URL + LinkedIn"
         query = f"{website_url} LinkedIn company page"
-        search_results = search(query, num=1)  # Using the corrected parameter
+
+        # Try different parameter names based on the version of googlesearch
+        try:
+            search_results = search(query, num=1)  # For some versions
+        except TypeError:
+            try:
+                search_results = search(query, stop=1)  # For other versions
+            except TypeError:
+                try:
+                    search_results = search(query, num_results=1)  # For yet other versions
+                except TypeError:
+                    # If all fail, use default parameters
+                    search_results = search(query)
+
         linkedin_url = next(search_results, None)
 
         if not linkedin_url:
             return "No LinkedIn page found in the search results."
 
         st.write(f"Found LinkedIn URL: {linkedin_url}")  # Debug output
+
+
+
+
+
 
         # Step 2: Use cloudscraper instead of regular requests
         scraper = cloudscraper.create_scraper()
