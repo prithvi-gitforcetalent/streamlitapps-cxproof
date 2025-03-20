@@ -64,24 +64,26 @@ def scrape_meta_content(website_url):
 
 def find_linkedin_about_section(website_url):
     try:
-        # Your Google API key and Custom Search Engine ID
-
+        # Get API credentials from Streamlit secrets
         api_key = st.secrets["googlecloudconsole"]["api_key"] if "googlecloudconsole" in st.secrets else None
-        st.write(api_key)
-
         cse_id = st.secrets["googlecloudconsole"]["cse_id"] if "googlecloudconsole" in st.secrets else None
 
-        st.write(cse_id)
+        # Check if credentials are available
+        if not api_key or not cse_id:
+            return "Google API credentials not configured. Please add them to the app secrets."
 
         # Create the search query
         query = f"{website_url} LinkedIn company page"
 
         # Make the API request
         search_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cse_id}&q={query}"
+        st.write(f"Debug - API URL (hide this in production): {search_url}")
+
         response = requests.get(search_url)
 
         if response.status_code != 200:
-            return f"Google API error: {response.status_code}"
+            error_details = response.json() if response.text else "No error details available"
+            return f"Google API error: {response.status_code} - {error_details}"
 
         # Parse the response
         search_results = response.json()
