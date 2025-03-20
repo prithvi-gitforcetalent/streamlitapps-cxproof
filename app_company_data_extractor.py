@@ -5,7 +5,8 @@ import cloudscraper
 from bs4 import BeautifulSoup
 from googlesearch import search
 from urllib.parse import urlparse
-
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 def normalize_url(url):
     """Ensure only the homepage URL is returned, stripping any subpages."""
@@ -59,42 +60,51 @@ def scrape_meta_content(website_url):
     return "\n".join(output)
 
 
-
-
-
 def find_linkedin_about_section(website_url):
     try:
-        # Get API credentials from Streamlit secrets
-        api_key = st.secrets["googlecloudconsole"]["api_key"] if "googlecloudconsole" in st.secrets else None
+        # Load service account info from Streamlit secrets
+        # You should store this service account JSON in your Streamlit secrets.toml
+        import json
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+
+        #Get CSE ID from Streamlit secrets
         cse_id = st.secrets["googlecloudconsole"]["cse_id"] if "googlecloudconsole" in st.secrets else None
 
-        # Check if credentials are available
-        if not api_key or not cse_id:
-            return "Google API credentials not configured. Please add them to the app secrets."
+        if not cse_id:
+            return "Custom Search Engine ID not configured. Please add it to the app secrets."
+
+        # Replace the hardcoded credentials with this code
+        service_account_info = st.secrets["service_account"] if "service_account" in st.secrets else None
+
+        if not service_account_info:
+            return "Service account credentials not configured. Please add them to the app secrets."
+
+
+
+
+        # Create credentials and service
+        credentials = service_account.Credentials.from_service_account_info(
+            service_account_info,
+            scopes=['https://www.googleapis.com/auth/cse']
+        )
+
+        # Build the service
+        service = build('customsearch', 'v1', credentials=credentials)
 
         # Create the search query
         query = f"{website_url} LinkedIn company page"
 
-        # Make the API request
-        search_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cse_id}&q={query}"
-        st.write(f"Debug - API URL (hide this in production): {search_url}")
-
-        response = requests.get(search_url)
-
-        if response.status_code != 200:
-            error_details = response.json() if response.text else "No error details available"
-            return f"Google API error: {response.status_code} - {error_details}"
-
-        # Parse the response
-        search_results = response.json()
+        # Execute the search
+        result = service.cse().list(q=query, cx=cse_id).execute()
 
         # Check if we got any results
-        if "items" not in search_results or not search_results["items"]:
+        if "items" not in result or not result["items"]:
             return "No LinkedIn page found in search results."
 
-        # Get the first result that contains linkedin.com
+        # Get the first result that contains linkedin.com/company
         linkedin_url = None
-        for item in search_results["items"]:
+        for item in result["items"]:
             if "linkedin.com/company" in item["link"]:
                 linkedin_url = item["link"]
                 break
@@ -104,11 +114,54 @@ def find_linkedin_about_section(website_url):
 
         st.write(f"Found LinkedIn URL: {linkedin_url}")
 
-        # Continue with your existing LinkedIn scraping code...
+        # Use cloudscraper to get the LinkedIn page
         scraper = cloudscraper.create_scraper()
         response = scraper.get(linkedin_url)
 
-        # Rest of your existing code...
+        if response.status_code != 200:
+            return f"Failed to fetch LinkedIn page. Status code: {response.status_code}"
+
+        # Parse the LinkedIn page and try multiple methods to find the About section
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Method 1: Try JSON-LD
+        script = soup.find('script', type='application/ld+json')
+        if script and script.string:
+            try:
+                data = json.loads(script.string)
+                # Try different JSON paths that might contain the about info
+                if "@graph" in data:
+                    organization_data = data.get("@graph", [])[0]
+                    about_text = organization_data.get("description")
+                    if about_text:
+                        return about_text
+
+                # Direct access attempt
+                about_text = data.get("description")
+                if about_text:
+                    return about_text
+            except (json.JSONDecodeError, IndexError, KeyError):
+                pass  # Continue to other methods if this fails
+
+        # Method 2: Try common HTML elements that might contain about info
+        about_section = soup.find('section', {'class': 'about-us'}) or \
+                        soup.find('section', {'id': 'about-us'}) or \
+                        soup.find('div', {'class': 'org-about-us-organization-description'}) or \
+                        soup.find('p', {'class': 'break-words'})
+
+        if about_section:
+            return about_section.text.strip()
+
+        # Method 3: Look for "About" section using text cues
+        about_headers = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5'], string=lambda s: s and 'About' in s)
+        for header in about_headers:
+            next_sibling = header.find_next('p')
+            if next_sibling:
+                return next_sibling.text.strip()
+
+        # If all methods fail
+        return "About section found but could not extract content. LinkedIn may require authentication."
+
     except Exception as e:
         return f"An error occurred: {str(e)}"
 
