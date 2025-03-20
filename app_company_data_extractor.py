@@ -59,87 +59,54 @@ def scrape_meta_content(website_url):
     return "\n".join(output)
 
 
-def find_linkedin_about_section(website_url):
 
+
+
+def find_linkedin_about_section(website_url):
     try:
-        # Step 1: Perform a Google search for "WEBSITE URL + LinkedIn"
+        # Your Google API key and Custom Search Engine ID
+
+        api_key = st.secrets["googlecloudconsole"]["api_key"] if "googlecloudconsole" in st.secrets else None
+
+        cse_id = st.secrets["googlecloudconsole"]["cse_id"] if "googlecloudconsole" in st.secrets else None
+
+        # Create the search query
         query = f"{website_url} LinkedIn company page"
 
-        # Try different parameter names based on the version of googlesearch
-        try:
-            search_results = search(query, num=1)  # For some versions
-        except TypeError:
-            try:
-                search_results = search(query, stop=1)  # For other versions
-            except TypeError:
-                try:
-                    search_results = search(query, num_results=1)  # For yet other versions
-                except TypeError:
-                    # If all fail, use default parameters
-                    search_results = search(query)
+        # Make the API request
+        search_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cse_id}&q={query}"
+        response = requests.get(search_url)
 
-        linkedin_url = next(search_results, None)
+        if response.status_code != 200:
+            return f"Google API error: {response.status_code}"
+
+        # Parse the response
+        search_results = response.json()
+
+        # Check if we got any results
+        if "items" not in search_results or not search_results["items"]:
+            return "No LinkedIn page found in search results."
+
+        # Get the first result that contains linkedin.com
+        linkedin_url = None
+        for item in search_results["items"]:
+            if "linkedin.com/company" in item["link"]:
+                linkedin_url = item["link"]
+                break
 
         if not linkedin_url:
-            return "No LinkedIn page found in the search results."
+            return "No LinkedIn company page found in search results."
 
-        st.write(f"Found LinkedIn URL: {linkedin_url}")  # Debug output
+        st.write(f"Found LinkedIn URL: {linkedin_url}")
 
-
-
-
-
-
-        # Step 2: Use cloudscraper instead of regular requests
+        # Continue with your existing LinkedIn scraping code...
         scraper = cloudscraper.create_scraper()
         response = scraper.get(linkedin_url)
 
-        if response.status_code != 200:
-            return f"Failed to fetch LinkedIn page. Status code: {response.status_code}"
-
-        # Step 3: Parse the LinkedIn page and try multiple methods to find the About section
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Method 1: Try JSON-LD
-        script = soup.find('script', type='application/ld+json')
-        if script and script.string:
-            try:
-                data = json.loads(script.string)
-                # Try different JSON paths that might contain the about info
-                if "@graph" in data:
-                    organization_data = data.get("@graph", [])[0]
-                    about_text = organization_data.get("description")
-                    if about_text:
-                        return about_text
-
-                # Direct access attempt
-                about_text = data.get("description")
-                if about_text:
-                    return about_text
-            except (json.JSONDecodeError, IndexError, KeyError):
-                pass  # Continue to other methods if this fails
-
-        # Method 2: Try common HTML elements that might contain about info
-        about_section = soup.find('section', {'class': 'about-us'}) or \
-                        soup.find('section', {'id': 'about-us'}) or \
-                        soup.find('div', {'class': 'org-about-us-organization-description'}) or \
-                        soup.find('p', {'class': 'break-words'})
-
-        if about_section:
-            return about_section.text.strip()
-
-        # Method 3: Look for "About" section using text cues
-        about_headers = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5'], string=lambda s: s and 'About' in s)
-        for header in about_headers:
-            next_sibling = header.find_next('p')
-            if next_sibling:
-                return next_sibling.text.strip()
-
-        # If all methods fail
-        return "About section found but could not extract content. LinkedIn may require authentication."
-
+        # Rest of your existing code...
     except Exception as e:
         return f"An error occurred: {str(e)}"
+
 st.set_page_config(
     page_title="Company Data Extractor"
 )
