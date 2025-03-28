@@ -63,7 +63,6 @@ def scrape_meta_content(website_url):
 def find_linkedin_about_section(website_url):
     try:
         # Load service account info from Streamlit secrets
-        # You should store this service account JSON in your Streamlit secrets.toml
         import json
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
