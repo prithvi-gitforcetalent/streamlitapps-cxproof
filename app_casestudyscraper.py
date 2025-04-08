@@ -622,7 +622,7 @@ def is_matching_url(url, keywords):
 
     # Split keywords into strong indicators vs generic terms
     strong_indicators = ["case-study", "case-studies", "success-story", "success-stories",
-                         "customer-success-stories", "customer-story", "customer-stories"]
+                         "customer-success-stories", "customer-story", "customer-stories","success"]
     generic_terms = [k for k in keywords if k not in strong_indicators]
 
     # PART 1: Original pattern check - apply to ALL keywords but with strict validation
