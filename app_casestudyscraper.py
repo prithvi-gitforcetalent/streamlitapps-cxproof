@@ -799,7 +799,7 @@ with col2:
     )
 
     # AI analysis button
-    if st.button("Analyze with AI"):
+    if st.button("Analyze with AI!"):
         if "case_studies" in st.session_state:
             case_studies = st.session_state["case_studies"]
             if case_studies:
